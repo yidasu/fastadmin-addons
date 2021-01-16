@@ -1,0 +1,38 @@
+{
+    "name": "yidasu/fastadmin-addons",
+    "description": "addons package for thinkphp5.1.* on fastadmin-addons",
+    "homepage": "https://github.com/yidasu/fastadmin-addons",
+    "license": "Apache-2.0",
+    "version": "1.0.0",
+    "authors": [
+        {
+            "name": "Karson",
+            "email": "karson@fastadmin.net"
+        },
+        {
+            "name": "Yida",
+            "email": "275572051@qq.com"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/yidasu/fastadmin-addons/issues"
+    },
+    "require": {
+        "php": ">=7.0.0",
+        "nelexa/zip": "^3.3",
+        "symfony/var-exporter": "^4.4.13"
+    },
+    "autoload": {
+        "psr-4": {
+            "think\\": "src/"
+        },
+        "files": [
+            "src/common.php"
+        ]
+    },
+    "extra": {
+        "think-config": {
+            "addons": "src/config.php"
+        }
+    }
+}
