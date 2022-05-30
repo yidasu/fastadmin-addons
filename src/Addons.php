@@ -20,6 +20,8 @@ abstract class Addons
     protected $error;
     // 插件目录
     public $addons_path = '';
+    public $addonPath = '';
+
     // 插件标识
     protected $addonName = '';
     // 插件配置作用域
@@ -39,12 +41,13 @@ abstract class Addons
         $this->addonName = $name;
 
         // 获取当前插件目录
-        $this->addons_path = ADDON_PATH . $name . DS;
+        $this->addonPath = ADDON_PATH . $name . DIRECTORY_SEPARATOR;
+        $this->addons_path = $this->addonPath;
 
         // 初始化视图模型
-        $config = ['view_path' => $this->addons_path];
-        $config = array_merge(Config::get('template.'), $config);
-        $this->view = new View($config, Config::get('view_replace_str'));
+        $config = ['view_path' => $this->addonPath];
+        $config = array_merge(Config::pull('template'), $config);
+        $this->view = new View($config, Config::get('template.tpl_replace_string'));
 
         // 控制器初始化
         if (method_exists($this, 'initialize')) {
@@ -69,9 +72,9 @@ abstract class Addons
             }
         }
         $info = [];
-        $info_file = $this->addons_path . 'info.ini';
-        if (is_file($info_file)) {
-            $info = Config::parse($info_file, '', "$this->infoRange.$name");
+        $infoFile = $this->addonPath . 'info.ini';
+        if (is_file($infoFile)) {
+            $info = Config::parse($infoFile, '', "$this->infoRange.$name");
             $info['url'] = addon_url($name);
         }
         Config::set("$this->infoRange.$name", $info);
@@ -96,13 +99,15 @@ abstract class Addons
             }
         }
         $config = [];
-        $config_file = $this->addons_path . 'config.php';
-        if (is_file($config_file)) {
-            $temp_arr = include $config_file;
-            foreach ($temp_arr as $key => $value) {
-                $config[$value['name']] = $value['value'];
+        $configFile = $this->addonPath . 'config.php';
+        if (is_file($configFile)) {
+            $configArr = include $configFile;
+            if (is_array($configArr)) {
+                foreach ($configArr as $key => $value) {
+                    $config[$value['name']] = $value['value'];
+                }
+                unset($configArr);
             }
-            unset($temp_arr);
         }
         Config::set("$this->configRange.$name", $config);
 
@@ -154,9 +159,9 @@ abstract class Addons
         if (empty($name)) {
             $name = $this->getName();
         }
-        $config_file = $this->addons_path . 'config.php';
-        if (is_file($config_file)) {
-            $fullConfigArr = include $config_file;
+        $configFile = $this->addonPath . 'config.php';
+        if (is_file($configFile)) {
+            $fullConfigArr = include $configFile;
         }
         return $fullConfigArr;
     }

@@ -1,12 +1,17 @@
 <?php
 
 use Symfony\Component\VarExporter\VarExporter;
+use think\addons\Service;
 use think\facade\App;
 use think\facade\Cache;
 use think\facade\Config;
-use think\facade\Exception;
+use think\Exception;
+use think\exception\HttpException;
+use think\exception\HttpResponseException;
 use think\facade\Hook;
 use think\Loader;
+use think\facade\Request;
+use think\facade\Response;
 use think\facade\Route;
 use think\facade\Env;
 
@@ -56,7 +61,11 @@ Hook::add('app_init', function () {
             $domain = $v['domain'];
             $drules = [];
             foreach ($v['rule'] as $m => $n) {
-                list($addon, $controller, $action) = explode('/', $n);
+                $urlArr = explode('/', $n);
+                if (count($urlArr) < 3) {
+                    continue;
+                }
+                list($addon, $controller, $action) = $urlArr;
                 $drules[$m] = sprintf($execute . '&indomain=1', $addon, $controller, $action);
             }
             //$domains[$domain] = $drules ? $drules : "\\addons\\{$k}\\controller";
@@ -66,7 +75,11 @@ Hook::add('app_init', function () {
             if (!$v) {
                 continue;
             }
-            list($addon, $controller, $action) = explode('/', $v);
+            $urlArr = explode('/', $v);
+            if (count($urlArr) < 3) {
+                continue;
+            }
+            list($addon, $controller, $action) = $urlArr;
             $rules[$k] = sprintf($execute, $addon, $controller, $action);
         }
     }
@@ -81,11 +94,8 @@ Hook::add('app_init', function () {
         $hooks = (array)Config::get('addons.hooks');
         // 初始化钩子
         foreach ($hooks as $key => $values) {
-            if (is_string($values)) {
-                $values = explode(',', $values);
-            } else {
-                $values = (array)$values;
-            }
+            $values = is_string($values) ? explode(',', $values) : (array)$values;
+            $values = array_filter($values);
             $hooks[$key] = array_filter(array_map('get_addon_class', $values));
         }
         Cache::set('hooks', $hooks);
@@ -144,7 +154,7 @@ function get_addon_list()
         if (is_file(ADDON_PATH . $name)) {
             continue;
         }
-        $addonDir = ADDON_PATH . $name . DS;
+        $addonDir = ADDON_PATH . $name . DIRECTORY_SEPARATOR;
         if (!is_dir($addonDir)) {
             continue;
         }
@@ -354,7 +364,7 @@ function get_addon_tables($name)
         return [];
     }
     $regex = "/^CREATE\s+TABLE\s+(IF\s+NOT\s+EXISTS\s+)?`?([a-zA-Z_]+)`?/mi";
-    $sqlFile = ADDON_PATH . $name . DS . 'install.sql';
+    $sqlFile = ADDON_PATH . $name . DIRECTORY_SEPARATOR . 'install.sql';
     $tables = [];
     if (is_file($sqlFile)) {
         preg_match_all($regex, file_get_contents($sqlFile), $matches);
@@ -393,10 +403,11 @@ function addon_url($url, $vars = [], $suffix = true, $domain = false)
     }
     $val = "@addons/{$url}";
     $config = get_addon_config($addon);
-    $dispatch = \think\facade\Request::dispatch();
-    $dispatch = empty($dispatch)? []: $dispatch->getParam();
-    $indomain = isset($dispatch['var']['indomain']) && $dispatch['var']['indomain'] ? true : false;
-    $domainprefix = $config && isset($config['domain']) && $config['domain'] ? $config['domain'] : '';
+    $dispatch = Request::dispatch();
+    $dispatch = empty($dispatch) ? []: $dispatch->getParam();
+    $indomain = isset($dispatch['var']['indomain']) && $dispatch['var']['indomain'] && $dispatch['var']['addon'] == $addon ? true : false;
+    //优先取插件配置中的domain，没有的情况下取全局的域名前缀配置
+    $domainprefix = $config && isset($config['domain']) && $config['domain'] ? $config['domain'] : Config::get('addons.domain');
     $domain = $domainprefix && Config::get('url_domain_deploy') ? $domainprefix : $domain;
     $rewrite = $config && isset($config['rewrite']) && $config['rewrite'] ? $config['rewrite'] : [];
     if ($rewrite) {
@@ -427,7 +438,6 @@ function addon_url($url, $vars = [], $suffix = true, $domain = false)
             $vars[substr($k, 1)] = $v;
         }
     }
-    
     $url = url($val, [], $suffix, $domain) . ($vars ? '?' . http_build_query($vars) : '');
     $url = preg_replace("/\/((?!index)[\w]+)\.php\//i", "/", $url);
     return $url;
@@ -459,11 +469,9 @@ function set_addon_info($name, $array)
             $res[] = "$key = " . (is_numeric($val) ? $val : $val);
         }
     }
-    if ($handle = fopen($file, 'w')) {
-        fwrite($handle, implode("\n", $res) . "\n");
-        fclose($handle);
+    if (file_put_contents($file, implode("\n", $res) . "\n", LOCK_EX)) {
         //清空当前配置缓存
-        Config::set($name, null, 'addoninfo');
+        Config::set('addoninfo'.$name, null);
     } else {
         throw new Exception("文件没有写入权限");
     }
@@ -507,14 +515,9 @@ function set_addon_config($name, $config, $writefile = true)
 function set_addon_fullconfig($name, $array)
 {
     $file = ADDON_PATH . $name . DIRECTORY_SEPARATOR . 'config.php';
-    if (!is_really_writable($file)) {
-        throw new Exception("文件没有写入权限");
-    }
-    if ($handle = fopen($file, 'w')) {
-        fwrite($handle, "<?php\n\n" . "return " . VarExporter::export($array) . ";\n");
-        fclose($handle);
-    } else {
-        throw new Exception("文件没有写入权限");
+    $ret = file_put_contents($file, "<?php\n\n" . "return " . VarExporter::export($array) . ";\n", LOCK_EX);
+    if (!$ret) {
+        throw new Exception("配置写入失败");
     }
     return true;
 }

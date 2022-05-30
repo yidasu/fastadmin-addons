@@ -53,7 +53,7 @@ class Controller extends \think\Controller
      * @param Request $request Request对象
      * @access public
      */
-    public function __construct($request = null)
+    public function __construct(Request $request = null)
     {
         if (is_null($request)) {
             $request = Request::instance();
@@ -70,10 +70,9 @@ class Controller extends \think\Controller
         $filter = $convert ? 'strtolower' : 'trim';
         // 处理路由参数
         $param = $this->request->param();
-        $dispatch = $this->request->dispatch()->getParam();
-        $var = empty($dispatch) ? [] : $dispatch;
-        $var = array_merge($var, $param);
-
+        $dispatch = $this->request->dispatch();
+        $var = isset($dispatch['var']) ? $dispatch['var'] : [];
+        $var = array_merge($param, $var);
         if (isset($dispatch['method']) && substr($dispatch['method'][0], 0, 7) == "\\addons") {
             $arr = explode("\\", $dispatch['method'][0]);
             $addon = strtolower($arr[2]);
@@ -93,11 +92,16 @@ class Controller extends \think\Controller
         Config::set('template.view_path', ADDON_PATH . $this->addon . DIRECTORY_SEPARATOR . 'view' . DIRECTORY_SEPARATOR);
 
         // 父类的调用必须放在设置模板路径之后
-        parent::__construct();
+        parent::__construct($this->request);
     }
 
     protected function initialize()
     {
+        // 检测IP是否允许
+        if (function_exists("check_ip_allowed")) {
+            check_ip_allowed();
+        }
+
         // 渲染配置到视图中
         $config = get_addon_config($this->addon);
         $this->view->assign("config", $config);
@@ -109,10 +113,8 @@ class Controller extends \think\Controller
 
         // 设置替换字符串
         $cdnurl = Config::get('site.cdnurl');
-        $this->view->filter(function($content){
-            return str_replace("__ADDON__","/assets/addons/" . $this->addon,$content);
-        });
-        
+        $this->view->replace('__ADDON__', $cdnurl . "/assets/addons/" . $this->addon);
+
         $this->auth = Auth::instance();
         // token
         $token = $this->request->server('HTTP_TOKEN', $this->request->request('token', \think\facade\Cookie::get('token')));
