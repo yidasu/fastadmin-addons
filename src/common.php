@@ -68,7 +68,6 @@ Hook::add('app_init', function () {
                 list($addon, $controller, $action) = $urlArr;
                 $drules[$m] = sprintf($execute . '&indomain=1', $addon, $controller, $action);
             }
-            //$domains[$domain] = $drules ? $drules : "\\addons\\{$k}\\controller";
             $domains[$domain] = $drules ? $drules : [];
             $domains[$domain][':controller/[:action]'] = sprintf($execute . '&indomain=1', $addon, ":controller", ":action");
         } else {
@@ -103,8 +102,10 @@ Hook::add('app_init', function () {
     //如果在插件中有定义app_init，则直接执行
     if (isset($hooks['app_init'])) {
         foreach ($hooks['app_init'] as $k => $v) {
-            Hook::exec($v, 'app_init');
+ 	        Hook::portal('appInit');    //修改入口方法
+            Hook::exec($v);
         }
+        Hook::portal('run');  //还原默认入口方法
     }
     Hook::import($hooks, true);
 });
@@ -164,7 +165,6 @@ function get_addon_list()
         }
 
         //这里不采用get_addon_info是因为会有缓存
-        //$info = get_addon_info($name);
         $info_file = $addonDir . 'info.ini';
         if (!is_file($info_file)) {
             continue;

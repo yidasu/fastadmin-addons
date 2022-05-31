@@ -106,9 +106,12 @@ class Controller extends \think\Controller
         $config = get_addon_config($this->addon);
         $this->view->assign("config", $config);
 
+        $lang = $this->request->langset();
+        $lang = preg_match("/^([a-zA-Z\-_]{2,10})\$/i", $lang) ? $lang : 'zh-cn';
+
         // 加载系统语言包
         Lang::load([
-            ADDON_PATH . $this->addon . DIRECTORY_SEPARATOR . 'lang' . DIRECTORY_SEPARATOR . $this->request->langset() . '.php',
+            ADDON_PATH . $this->addon . DIRECTORY_SEPARATOR . 'lang' . DIRECTORY_SEPARATOR . $lang . '.php',
         ]);
 
         // 设置替换字符串
@@ -153,10 +156,12 @@ class Controller extends \think\Controller
 
         $site = Config::pull("site");
 
-        $upload = \app\common\model\Config::upload();
-
         // 上传信息配置后
+        $upload = (object)\app\common\model\Config::upload();
+
         Hook::listen("upload_config_init", $upload);
+        $upload = (array)$upload;
+
         Config::set('upload', array_merge(Config::pull('upload'), $upload));
 
         // 加载当前控制器语言包

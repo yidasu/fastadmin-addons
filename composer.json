@@ -3,7 +3,7 @@
     "description": "addons package for fastadmin with thinkphp 5.1.*",
     "homepage": "https://github.com/yidasu/fastadmin-addons",
     "license": "Apache-2.0",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "authors": [
         {
             "name": "Karson",
