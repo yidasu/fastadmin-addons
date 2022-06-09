@@ -53,7 +53,7 @@ class Controller extends \think\Controller
      * @param Request $request Request对象
      * @access public
      */
-    public function __construct(Request $request = null)
+    public function __construct($request = null)
     {
         if (is_null($request)) {
             $request = Request::instance();
@@ -70,7 +70,7 @@ class Controller extends \think\Controller
         $filter = $convert ? 'strtolower' : 'trim';
         // 处理路由参数
         $param = $this->request->param();
-        $dispatch = $this->request->dispatch();
+        $dispatch = $this->request->dispatch()->getParam();
         $var = isset($dispatch['var']) ? $dispatch['var'] : [];
         $var = array_merge($param, $var);
         if (isset($dispatch['method']) && substr($dispatch['method'][0], 0, 7) == "\\addons") {
@@ -92,7 +92,7 @@ class Controller extends \think\Controller
         Config::set('template.view_path', ADDON_PATH . $this->addon . DIRECTORY_SEPARATOR . 'view' . DIRECTORY_SEPARATOR);
 
         // 父类的调用必须放在设置模板路径之后
-        parent::__construct($this->request);
+        parent::__construct();
     }
 
     protected function initialize()
@@ -116,7 +116,9 @@ class Controller extends \think\Controller
 
         // 设置替换字符串
         $cdnurl = Config::get('site.cdnurl');
-        $this->view->replace('__ADDON__', $cdnurl . "/assets/addons/" . $this->addon);
+        $this->view->filter(function($content){
+            return str_replace("__ADDON__",$cdnurl . "/assets/addons/" . $this->addon, $content);
+        });
 
         $this->auth = Auth::instance();
         // token
@@ -162,7 +164,7 @@ class Controller extends \think\Controller
         Hook::listen("upload_config_init", $upload);
         $upload = (array)$upload;
 
-        Config::set('upload', array_merge(Config::pull('upload'), $upload));
+        Config::set(array_merge(Config::pull('upload'), $upload), 'upload');
 
         // 加载当前控制器语言包
         $this->assign('site', $site);
